@@ -1,15 +1,25 @@
 {
-  "name": "ai-agent",
+  "name": "restaurant-ai-agent",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "AI-powered restaurant management system",
+  "main": "restaurant-agent.js",
+  "type": "module",
   "scripts": {
+    "start": "node restaurant-agent.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "restaurant",
+    "ai",
+    "agent",
+    "management",
+    "openai"
+  ],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
   "dependencies": {
-    "openai": "^4.87.3"
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.0",
+    "readline-sync": "^1.4.10"
   }
 }
