@@ -45,7 +45,7 @@ This project implements an AI-powered restaurant management system that can hand
 To start the restaurant management AI agent:
 
 ```
-node restaurant-agent.js
+node index.js
 ```
 
 ## Example Commands
