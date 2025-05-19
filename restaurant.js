@@ -9,31 +9,20 @@ if (!fs.existsSync(ordersDir)) {
 
 // Menu with food items and prices
 const menu = {
-  "Appetizers": {
-    "Garlic Bread": 5.99,
-    "Mozzarella Sticks": 7.99,
-    "Chicken Wings": 9.99,
-    "Soup of the Day": 4.99
-  },
   "Main Courses": {
-    "Spaghetti Bolognese": 12.99,
-    "Grilled Salmon": 18.99,
+    "Spaghetti": 12.99,
     "Chicken Alfredo": 14.99,
-    "Vegetable Stir Fry": 11.99,
-    "Steak": 22.99
+    "Steak": 22.99,
+    "Biryani": 15.99
   },
   "Desserts": {
     "Chocolate Cake": 6.99,
-    "Cheesecake": 7.99,
     "Ice Cream": 4.99,
-    "Fruit Salad": 5.99
   },
   "Drinks": {
     "Soda": 2.99,
     "Coffee": 3.99,
     "Tea": 2.99,
-    "Wine": 8.99,
-    "Beer": 5.99
   }
 };
 
@@ -73,6 +62,14 @@ const checkItemAvailability = (item) => {
 
 // Create a new order
 const createOrder = (customerName, items) => {
+  // Validate customer name is provided
+  if (!customerName || customerName.trim() === '') {
+    return {
+      error: true,
+      message: "Customer name is required"
+    };
+  }
+
   // Validate items
   const validItems = [];
   const invalidItems = [];

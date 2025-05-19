@@ -1,0 +1,11 @@
+{
+  "orderId": "1747435991287",
+  "customerName": "Hassan",
+  "items": [
+    "Spaghetti",
+    "Coffee"
+  ],
+  "totalPrice": 16.98,
+  "status": "preparing",
+  "timestamp": "2025-05-16T22:53:11.287Z"
+}

@@ -1,103 +1,195 @@
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import readlineSync from "readline-sync";
+import * as restaurantTools from "./restaurant.js";
 dotenv.config();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!OPENAI_API_KEY) {
+  console.error("Error: OPENAI_API_KEY is not set in .env file");
+  process.exit(1);
+}
 
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-const getWeather = (city) => {
-  const weather = {
-    "New York": "10 C",
-    "Los Angeles": "15 C",
-    "Chicago": "12 C",
-    "Houston": "14 C",
-    "Miami": "16 C",
-  }
-
-  if (weather[city]) {
-    return weather[city];
-  } else {
-    return "City not found";
-  }
-}
-
+// Define the tools that the AI agent can use
 const tools = {
-  getWeather: getWeather
-}
+  getMenu: restaurantTools.getMenu,
+  getMenuCategory: restaurantTools.getMenuCategory,
+  getPrice: restaurantTools.getPrice,
+  checkItemAvailability: restaurantTools.checkItemAvailability,
+  createOrder: restaurantTools.createOrder,
+  getOrderDetails: restaurantTools.getOrderDetails,
+  updateOrderStatus: restaurantTools.updateOrderStatus,
+  getAllOrders: restaurantTools.getAllOrders,
+  getPendingOrders: restaurantTools.getPendingOrders,
+  calculateBill: restaurantTools.calculateBill,
+  addItemToOrder: restaurantTools.addItemToOrder,
+  removeItemFromOrder: restaurantTools.removeItemFromOrder
+};
 
 const SYSTEM_PROMPT = `
-You are an AI assistant with START, PLAN, ACTION, Observation and Output State.
+You are an AI restaurant management assistant with START, PLAN, ACTION, Observation and Output State.
 Wait for the user prompt and first PLAN using available tools.
 After planning, take the ACTION with appropriate tools and wait for Observation based on Action.
 Once you get the Observation, return the AI response based on START prompt and observations.
 
+When a user wants to place an order but doesn't provide a customer name, you MUST ask for the customer name before creating the order. Do not create an order without a customer name.
+
+You MUST maintain context throughout the conversation. If a user wants to order specific items but doesn't provide a name, ask for the name and remember the items they wanted to order. When they provide the name in the next message, use that name with the previously mentioned items to create the order.
+
 Strictly follow JSON output format as in examples.
 
 Available Tools:
-- function getWeather(city: string): string
-getWeather is a function that accepts a city name as input and returns the weather of a given city.
+- function getMenu(): object
+  Returns the full menu with categories, items, and prices.
+
+- function getMenuCategory(category: string): object
+  Returns items and prices for a specific menu category.
+
+- function getPrice(item: string): number | string
+  Returns the price of a specific menu item or "Item not found".
+
+- function checkItemAvailability(item: string): boolean
+  Checks if an item exists in the menu.
+
+- function createOrder(customerName: string, items: string[]): object
+  Creates a new order with the given customer name and items.
+  Returns order details including orderId, valid items, invalid items, total price, and status.
+
+- function getOrderDetails(orderId: string): object | string
+  Returns details of an order by ID or error message if not found.
+
+- function updateOrderStatus(orderId: string, status: string): object | string
+  Updates the status of an order (e.g., "pending", "preparing", "ready", "delivered").
+  Returns success status or error message.
+
+- function getAllOrders(): array | string
+  Returns all orders or error message.
+
+- function getPendingOrders(): array | string
+  Returns all pending orders or error message.
+
+- function calculateBill(orderId: string): object | string
+  Calculates the bill for an order, returning order details with total price.
+
+- function addItemToOrder(orderId: string, item: string): object | string
+  Adds an item to an existing order and updates the total price.
+  Returns success status or error message.
+
+- function removeItemFromOrder(orderId: string, item: string): object | string
+  Removes an item from an existing order and updates the total price.
+  Returns success status or error message.
 
 Example:
 START
-{ "type": "user", "user": "What is the sum of weather of Chicago and Miami?" } 
-{ "type": "plan", "plan": "I will call the getWeatherDetails for Chicago" }
-{ "type": "action", "function": "getWeather", "input": "Chicago" } 
-{ "type": "observation", "observation": "12°C" }
-{ "type": "plan", "plan": "I will call getWeather for Miami" } 
-{ "type": "action", "function": "getWeather", "input": "Miami" } 
-{ "type": "observation", "observation": "16°C" }
-{ "type": "output", "output": "The sum of weather of Chicago and Miami is 28°C" }
-`
+{ "type": "user", "user": "What items do you have on the menu?" } 
+{ "type": "plan", "plan": "I will call getMenu to retrieve the full menu" }
+{ "type": "action", "function": "getMenu", "input": null } 
+{ "type": "observation", "observation": {"Appetizers": {"Garlic Bread": 5.99, "Mozzarella Sticks": 7.99}, "Main Courses": {"Spaghetti Bolognese": 12.99, "Grilled Salmon": 18.99}} }
+{ "type": "output", "output": "We have a variety of items on our menu. For appetizers, we offer Garlic Bread ($5.99) and Mozzarella Sticks ($7.99). For main courses, we have Spaghetti Bolognese ($12.99) and Grilled Salmon ($18.99)." }
 
-// const userPrompt = 'What is the weather of New York?'
+Example:
+START
+{ "type": "user", "user": "I'd like to place an order for John with Garlic Bread and Spaghetti Bolognese" } 
+{ "type": "plan", "plan": "I will create a new order for John with the requested items" }
+{ "type": "action", "function": "createOrder", "input": {"customerName": "John", "items": ["Garlic Bread", "Spaghetti Bolognese"]} } 
+{ "type": "observation", "observation": {"orderId": "1621234567890", "validItems": ["Garlic Bread", "Spaghetti Bolognese"], "invalidItems": [], "totalPrice": 18.98, "status": "pending"} }
+{ "type": "output", "output": "Thank you! I've created an order for John with Garlic Bread and Spaghetti Bolognese. Your order ID is 1621234567890, and the total is $18.98. Your order status is currently pending." }
 
-// const chat = async () => {
-//   const response = await openai.chat.completions.create({
-//     model: "gpt-4o",
-//     messages: [
-//       { role: "system", content: SYSTEM_PROMPT }, 
-//       { role: "user", content: userPrompt }
-//     ],
-//   });
+Example:
+START
+{ "type": "user", "user": "I want to order Steak and Ice Cream" } 
+{ "type": "plan", "plan": "I need to ask for the customer name before creating the order" }
+{ "type": "output", "output": "I'd be happy to place that order for you. Could you please provide the name for this order?" }
 
-//   console.log(response.choices[0].message.content);
-// }
+Example:
+START
+{ "type": "user", "user": "John" } 
+{ "type": "plan", "plan": "Now I have the customer name, I can create the order for John with Steak and Ice Cream" }
+{ "type": "action", "function": "createOrder", "input": {"customerName": "John", "items": ["Steak", "Ice Cream"]} } 
+{ "type": "observation", "observation": {"orderId": "1621234567891", "validItems": ["Steak", "Ice Cream"], "invalidItems": [], "totalPrice": 27.98, "status": "pending"} }
+{ "type": "output", "output": "Thank you, John! I've created your order with Steak and Ice Cream. Your order ID is 1621234567891, and the total is $27.98. Your order status is currently pending." }
+`;
 
-// chat();
+const messages = [{ role: "system", content: SYSTEM_PROMPT }];
 
-const messages = [{ role: "system", content: SYSTEM_PROMPT }]
+console.log("Welcome to the Restaurant Management AI Assistant!");
+console.log("Type 'exit' to quit the program.");
+console.log("---------------------------------------------");
+
+// Display initial greeting from the AI agent
+console.log("\nHello! I'm your Restaurant Management Assistant. I can help you with viewing the menu, placing orders, checking order status, and managing restaurant operations. How may I assist you today?");
+console.log("---------------------------------------------");
 
 while (true) {
   const query = readlineSync.question(">> ");
+  
+  if (query.toLowerCase() === 'exit') {
+    console.log("Thank you for using the Restaurant Management AI Assistant. Goodbye!");
+    process.exit(0);
+  }
+  
   const q = {
     type: 'user',
-    content: query
-  }
+    user: query
+  };
+  
   messages.push({ role: 'user', content: JSON.stringify(q) });
+  // console.log("Processing your request...");
 
   while (true) {
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: messages,
-      response_format: { type: "json_object" },
-    });
+    try {
+      const chat = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: messages,
+        response_format: { type: "json_object" },
+      });
 
-    const result = chat.choices[0].message.content;
-    messages.push({ role: 'assistant', content: result });
+      const result = chat.choices[0].message.content;
+      messages.push({ role: 'assistant', content: result });
 
-    const parsed = JSON.parse(result);
-    if (parsed.type === 'output') {
-      console.log(parsed.output);
+      const parsed = JSON.parse(result);
+      
+      if (parsed.type === 'plan') {
+        // console.log(`Planning: ${parsed.plan}`);
+      } else if (parsed.type === 'action') {
+        // console.log(`Taking action: ${parsed.function}`);
+        
+        const fn = tools[parsed.function];
+        if (!fn) {
+          console.error(`Error: Function ${parsed.function} not found`);
+          const errorObservation = { 
+            type: 'observation', 
+            observation: `Error: Function ${parsed.function} not found` 
+          };
+          messages.push({ role: 'user', content: JSON.stringify(errorObservation) });
+          continue;
+        }
+        
+        let output;
+        if (parsed.input === null) {
+          output = fn();
+        } else if (typeof parsed.input === 'object') {
+          output = fn(...Object.values(parsed.input));
+        } else {
+          output = fn(parsed.input);
+        }
+        
+        const observation = { type: 'observation', observation: output };
+        messages.push({ role: 'user', content: JSON.stringify(observation) });
+      } else if (parsed.type === 'output') {
+        console.log("\n", parsed.output);
+        break;
+      }
+    } catch (error) {
+      console.error("Error:", error.message);
       break;
-    } else if (parsed.type === 'action') {
-      const fn = tools[parsed.function];
-      const output = fn(parsed.input);
-      const observation = { type: 'observation', observation: output }
-      messages.push({ role: 'developer', content: JSON.stringify(observation) });
     }
   }
-}
+  
+  console.log("---------------------------------------------");
+} 
